@@ -154,7 +154,19 @@ def main():
     #request.download_settings(hash="8631c515a4c084ef30ef4d6eee8f5f5b250db697")#old54b359c97e46900f87211ef6e6dd0b7f2a3ea1f5
     #request.get_buddy_walked()
     response_dict = request.call()
-    print('Response dictionary (map_objects): \n\r{}'.format(pprint.PrettyPrinter(indent=4).pformat(response_dict)))
+    #print('Response dictionary (map_objects): \n\r{}'.format(pprint.PrettyPrinter(indent=4).pformat(response_dict)))
+
+    if 'status' not in response_dict['responses']['GET_MAP_OBJECTS']:
+        raise ValueError("Invalid response: {}".format(json.dumps(response_dict, indent=2)))
+    if response_dict['responses']['GET_MAP_OBJECTS']['status'] == 1:
+        for cell in response_dict['responses']['GET_MAP_OBJECTS']['map_cells']:
+            if 'nearby_pokemons' in cell:
+                print "nearby_pokemons in cell: " + cell['s2_cell_id']
+                print cell['nearby_pokemons']
+            if 'wild_pokemons' in cell:
+                pprint.PrettyPrinter(indent=2).pformat(cell['wild_pokemons'])
+
+        print response_dict['responses']['CHECK_CHALLENGE']
 
     """
     response_token = raw_input()

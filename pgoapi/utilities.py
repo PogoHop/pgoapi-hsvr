@@ -29,6 +29,7 @@ import struct
 import ctypes
 import logging
 import socket
+import os
 
 from json import JSONEncoder
 from binascii import unhexlify, hexlify
@@ -43,9 +44,9 @@ log = logging.getLogger(__name__)
 HASH_SEED = 0x61247FBF  # static hash seed from app
 EARTH_RADIUS = 6371000  # radius of Earth in meters
 
-HASHSERVER_IP = "127.0.0.1"
-HASHSERVER_PORT = 1500
-
+_nhash = ctypes.cdll.LoadLibrary(os.path.join(os.path.dirname(os.path.realpath(__file__)), "libnhash.so"))
+_nhash.compute_hash.argtypes = (ctypes.POINTER(ctypes.c_ubyte), ctypes.c_uint32)
+_nhash.compute_hash.restype = ctypes.c_uint64
 
 def f2i(float):
   return struct.unpack('<Q', struct.pack('<d', float))[0]
@@ -182,60 +183,52 @@ def long_to_bytes(val, endianness='big'):
 
 def generate_location_hash_by_seed(authticket, lat, lng, acc=5):
     first_hash = hash32(authticket, seed=HASH_SEED)
-    #print "location_hash_by_token_seed first_hash: %s" % hex((first_hash))
+    #print "location_hash_by_seed_1: %s" % (first_hash)
     location_bytes = d2h(lat) + d2h(lng) + d2h(acc)
     loc_hash = hash32(location_bytes, seed=first_hash)
-    #print "location_hash_by_token_seed loc_hash: %s" % hex((loc_hash))
+    #print "location_hash_by_seed_2: %s" % (loc_hash)
     return ctypes.c_int32(loc_hash).value
 
 
 def generate_location_hash(lat, lng, acc=5):
     location_bytes = d2h(lat) + d2h(lng) + d2h(acc)
     loc_hash = hash32(location_bytes, seed=HASH_SEED)
-    #print "generate_location_hash loc_hash: %s" % (hex(loc_hash))
+    #print "location_hash: %s" % hex(loc_hash)
     return ctypes.c_int32(loc_hash).value
 
 
 def generate_request_hash(authticket, request):
     first_hash = hash64salt32(authticket, seed=HASH_SEED)
-    #print "generate_request_hash first_hash: %s" % (hex(first_hash))
+    #print "request_hash_1: %s" % hex(first_hash)
     req_hash = hash64salt64(request, seed=first_hash)
-    #print "generate_request_hash req_hash: %s" % (hex(req_hash))
+    #print "request_hash_2: %s" % hex(req_hash)
     return ctypes.c_int64(req_hash).value
 
 def hash64salt32(buf, seed):
-    #print hexlify(bytearray(buffer))
     buf = struct.pack(">I", seed) + buf
-    #print hexlify(bytearray(buffer))
-
-    return sendToHashServer(buf)
+    return calcHash(buf)
     
 def hash64salt64(buf, seed):
-    #print hexlify(bytearray(buffer))
     buf = struct.pack(">Q", seed) + buf
-    #print hexlify(bytearray(buffer))
-
-    return sendToHashServer(buf)
+    return calcHash(buf)
     
 def hash32(buf, seed):
-    #print "---------"
-    #print list(bytearray(buf))
-    #print hexlify(bytearray(buffer))
     buf = struct.pack(">I", seed) + buf
-    #print hexlify(bytearray(buf))
-    #print list(bytearray(buf))
-    data = sendToHashServer(buf)
-    tempnum = ctypes.c_int64(data)
-    return ctypes.c_uint(tempnum.value).value ^ ctypes.c_uint(tempnum.value >> 32).value
+    hash64 = calcHash(buf)
+    signedhash64 = ctypes.c_int64(hash64)
+    return ctypes.c_uint(signedhash64.value).value ^ ctypes.c_uint(signedhash64.value >> 32).value
 
 
-def sendToHashServer(buf):
-    
+def calcHash(buf):
+    global _nhash
+
     #buf = b"\x61\x24\x7f\xbf\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" 
+    buf = list(bytearray(buf))
+    #print buf
+    num_bytes = len(buf)
+    array_type = ctypes.c_ubyte * num_bytes
 
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect((HASHSERVER_IP,HASHSERVER_PORT))
-    s.send(buf)
-    data = s.recv(8)
-    s.close()#TODO reuse socket
-    return struct.unpack('<Q', data)[0]
+    data = _nhash.compute_hash(array_type(*buf), ctypes.c_uint32(num_bytes));
+
+    #print data
+    return ctypes.c_uint64(data).value
