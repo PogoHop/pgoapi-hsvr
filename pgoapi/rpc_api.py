@@ -277,7 +277,7 @@ class RpcApi:
             sen.gravity_z = random.triangular(-1, .7, -0.8)
             sen.status = 3
 
-            sig.field25 = -8408506833887075802 #protos required uint64. changed that, but i'm not sure if it shouldn't be ctypes.c_uint64(...).value instead
+            sig.field25 = ctypes.c_uint64(-8408506833887075802).value
 
             if self.device_info:
                 for key in self.device_info:

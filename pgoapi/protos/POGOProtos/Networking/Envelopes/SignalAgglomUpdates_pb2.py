@@ -745,7 +745,7 @@ _SIGNALAGGLOMUPDATES = _descriptor.Descriptor(
       options=None),
     _descriptor.FieldDescriptor(
       name='field25', full_name='SignalAgglomUpdates.field25', index=24,
-      number=25, type=3, cpp_type=2, label=1,
+      number=25, type=4, cpp_type=4, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
